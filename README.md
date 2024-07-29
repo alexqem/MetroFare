@@ -38,8 +38,8 @@ cd MetroFare
 GET http://localhost:80/api/v1/cheapest-route?begin=0&end=5&currencies[]=USDT&currencies[]=ETH&currencies[]=BTC
 ```
 
-- **begin** 
-- **end** 
+- **begin**
+- **end**
 - **currencies[]** (USDT,BTC,ETH)
 
 **Unit test:**
