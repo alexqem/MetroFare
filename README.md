@@ -38,9 +38,9 @@ cd MetroFare
 GET http://localhost:80/api/v1/cheapest-route?begin=0&end=5&currencies[]=USDT&currencies[]=ETH&currencies[]=BTC
 ```
 
-- **begin** - начальная точка
-- **end** - конечная точка
-- **currencies[]** - Поддерживаемы (USDT,BTC,ETH)
+- **begin** 
+- **end** 
+- **currencies[]** (USDT,BTC,ETH)
 
 **Unit test:**
 ```bash
