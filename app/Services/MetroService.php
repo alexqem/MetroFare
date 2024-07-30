@@ -14,7 +14,7 @@ class MetroService
     }
 
     /**
-     * Поиск кротчайшего пути между 2 станциями
+     * Поиск кратчайшего пути между двумя станциями
      * Разбит по KISS, ниже есть nonKiss метод
      *
      * @param int $begin Начальная платформа
@@ -54,7 +54,7 @@ class MetroService
     }
 
     /**
-     * Задаем 2Д матрцу
+     * Задаем 2Д матрицу
      *
      * @param int $size
      * @param mixed $defaultValue
@@ -114,7 +114,7 @@ class MetroService
     }
 
     /**
-     * Reconstruct the path from start to end.
+     * Пересобираем путь с начальной до конечной
      *
      * @param int $begin
      * @param int $end
@@ -134,12 +134,15 @@ class MetroService
             $path[] = $current;
             $nextStation = $next[$current][$end] ?? null;
 
-            if ($nextStation === null) {
+            if ($nextStation === null || $nextStation === -1) {
                 return ['error' => 'Path not found'];
             }
 
             $currency = $currencyUsed[$current][$nextStation];
             $cost = $fares[$currency][$current][$nextStation];
+            if ($cost === null) {
+                return ['error' => 'Path not found'];
+            }
 
             $tickets[] = [
                 'from' => $current,
@@ -152,15 +155,17 @@ class MetroService
         }
 
         $path[] = $end;
-        $totalCost = number_format($totalCost, 2, '.', '');
 
         return [
             'path' => $path,
             'tickets' => $tickets,
-            'totalCostUSD' => $totalCost
+            'totalCostUSD' => number_format($totalCost, 2, '.', '')
         ];
     }
 
+    /**
+     * @deprecated
+     */
     private function findCheapestRouteNoneKISS(int $begin, int $end, $currencies): array
     {
         $fares = [];
