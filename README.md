@@ -2,6 +2,8 @@
 
 A Laravel 10 project that helps find the cheapest route using various cryptocurrencies.
 
+According to tech requirements https://docs.google.com/document/d/1FHC2oavx-JqKWs1zrtNczYL24aQFF5dLnCujxK-ENdo/edit?usp=sharing
+
 ## Getting Started
 
 ### Prerequisites
@@ -14,22 +16,14 @@ To work with this project, you need to have the following installed on your syst
 
 ### Installation
 
-#### 1. Unzip the project
-
 ```bash
-unzip MetroFare.zip
-cd MetroFare
-```
-
-**Example:**
-```bash
-- cd ./MetroFare
-- ./vendor/bin/sail up -d
+cd ./MetroFare
+./vendor/bin/sail up -d
 ```
 
 **Command usage:**
 ```bash
-- ./vendor/bin/sail artisan metro:find-cheapest-route
+./vendor/bin/sail artisan metro:find-cheapest-route
 ```
 
 **Postman usage:**
