@@ -3,65 +3,172 @@
 namespace App\Services;
 
 use App\Models\MetroFares;
-use Illuminate\Support\Facades\Http;
 
 class MetroService
 {
-    public static function fetchCurrencyRatesFromApi()
-    {
-        // В реальном приложении здесь был бы настоящий API-запрос
-        $response = Http::fake([
-            'api.example.com/currency-rates' => Http::response([
-                'USDT' => 1.005,
-                'ETH' => 3066.33,
-                'BTC' => 57929
-            ], 200)
-        ])->get('api.example.com/currency-rates');
+    private MetroFares $metroFares;
 
-        return $response->json();
+    public function __construct(MetroFares $metroFares)
+    {
+        $this->metroFares = $metroFares;
     }
 
-    public static function fetchFaresFromApi($currency)
+    /**
+     * Поиск кротчайшего пути между 2 станциями
+     * Разбит по KISS, ниже есть nonKiss метод
+     *
+     * @param int $begin Начальная платформа
+     * @param int $end Конечная платформа
+     * @param array $currencies
+     * @return array Ответ или массив с ошибкой
+     */
+    public function findCheapestRoute(int $begin, int $end, array $currencies): array
     {
-        $response = Http::fake([
-            "api.example.com/fares/{$currency}" => Http::response(self::FARES[$currency], 200)
-        ])->get("api.example.com/fares/{$currency}");
+        $fares = $this->getFaresForCurrencies($currencies);
 
-        return $response->json();
+        $numStations = count($fares['USDT']);
+        $dist = $this->initializeMatrix($numStations, INF);
+        $next = $this->initializeMatrix($numStations, -1);
+        $currencyUsed = $this->initializeMatrix($numStations, '');
 
-        /* Можно накинуть кэш с обновлением в N минут. try catch, Лог Sentry, Graylog */
+        $this->findInitialShortestPaths($currencies, $fares, $dist, $next, $currencyUsed);
+
+        $this->applyFloydWarshall($numStations, $dist, $next, $currencyUsed);
+
+        return $this->reconstructPath($begin, $end, $next, $currencyUsed, $fares);
     }
 
-    private const FARES = [
-        'USDT' => [
-            [INF, 0.69652, 1.39254, INF, INF, 2.08557],
-            [0.69652, INF, 0.69652, 1.39254, INF, INF],
-            [1.39254, 0.69652, INF, 0.69652, 1.39254, INF],
-            [INF, 1.39254, 0.69652, INF, 1.39254, 0.69652],
-            [INF, INF, 1.39254, 1.39254, INF, 0.69652],
-            [2.08557, INF, INF, 0.69652, 0.69652, INF],
-        ],
-        'ETH' => [
-            [INF, 0.00022828, 0.00045656, INF, INF, 0.00068484],
-            [0.00022828, INF, 0.00022828, 0.00045656, INF, INF],
-            [0.00045656, 0.00022828, INF, 0.00022828, 0.00045656, INF],
-            [INF, 0.00045656, 0.00022828, INF, 0.00045656, 0.00022828],
-            [INF, INF, 0.00045656, 0.00045656, INF, 0.00022828],
-            [0.00068484, INF, INF, 0.00022828, 0.00022828, INF],
-        ],
-        'BTC' => [
-            [INF, 0.00001209, 0.00002417, INF, INF, 0.00003626],
-            [0.00001209, INF, 0.00001209, 0.00002417, INF, INF],
-            [0.00002417, 0.00001209, INF, 0.00001209, 0.00002417, INF],
-            [INF, 0.00002417, 0.00001209, INF, 0.00002417, 0.00001209],
-            [INF, INF, 0.00002417, 0.00002417, INF, 0.00001209],
-            [0.00003626, INF, INF, 0.00001209, 0.00001209, INF],
-        ],
-    ];
-
-    public function findCheapestRoute(int $begin, int $end, $currencies): array
+    /**
+     * Получаем Тарифы на все пути
+     *
+     * @param array $currencies
+     * @return array
+     */
+    private function getFaresForCurrencies(array $currencies): array
     {
-        $numStations = count(self::FARES['USDT']);
+        $fares = [];
+        foreach ($currencies as $currency) {
+            $fares[$currency] = $this->metroFares->getFares($currency);
+        }
+        return $fares;
+    }
+
+    /**
+     * Задаем 2Д матрцу
+     *
+     * @param int $size
+     * @param mixed $defaultValue
+     * @return array
+     */
+    private function initializeMatrix(int $size, mixed $defaultValue): array
+    {
+        return array_fill(0, $size, array_fill(0, $size, $defaultValue));
+    }
+
+    /**
+     * Ищем короткий путь для всх валют
+     *
+     * @param array $currencies
+     * @param array $fares
+     * @param array &$dist
+     * @param array &$next
+     * @param array &$currencyUsed
+     */
+    private function findInitialShortestPaths(array $currencies, array $fares, array &$dist, array &$next, array &$currencyUsed): void
+    {
+        foreach ($currencies as $currency) {
+            for ($i = 0; $i < count($dist); $i++) {
+                for ($j = 0; $j < count($dist); $j++) {
+                    $fare = $fares[$currency][$i][$j];
+                    if ($fare < $dist[$i][$j]) {
+                        $dist[$i][$j] = $fare;
+                        $next[$i][$j] = $j;
+                        $currencyUsed[$i][$j] = $currency;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Алгоритм Флойда-Уоршелла
+     *
+     * @param int $numStations
+     * @param array &$dist
+     * @param array &$next
+     * @param array &$currencyUsed
+     */
+    private function applyFloydWarshall(int $numStations, array &$dist, array &$next, array &$currencyUsed): void
+    {
+        for ($k = 0; $k < $numStations; $k++) {
+            for ($i = 0; $i < $numStations; $i++) {
+                for ($j = 0; $j < $numStations; $j++) {
+                    if ($dist[$i][$k] + $dist[$k][$j] < $dist[$i][$j]) {
+                        $dist[$i][$j] = $dist[$i][$k] + $dist[$k][$j];
+                        $next[$i][$j] = $next[$i][$k];
+                        $currencyUsed[$i][$j] = $currencyUsed[$i][$k];
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reconstruct the path from start to end.
+     *
+     * @param int $begin
+     * @param int $end
+     * @param array $next
+     * @param array $currencyUsed
+     * @param array $fares
+     * @return array
+     */
+    private function reconstructPath(int $begin, int $end, array $next, array $currencyUsed, array $fares): array
+    {
+        $path = [];
+        $tickets = [];
+        $totalCost = 0;
+        $current = $begin;
+
+        while ($current != $end) {
+            $path[] = $current;
+            $nextStation = $next[$current][$end] ?? null;
+
+            if ($nextStation === null) {
+                return ['error' => 'Path not found'];
+            }
+
+            $currency = $currencyUsed[$current][$nextStation];
+            $cost = $fares[$currency][$current][$nextStation];
+
+            $tickets[] = [
+                'from' => $current,
+                'to' => $nextStation,
+                'currency' => $currency,
+                'cost' => number_format($cost, 10, '.', '')
+            ];
+            $totalCost += $cost * $this->metroFares->getCurrencyRate($currency);
+            $current = $nextStation;
+        }
+
+        $path[] = $end;
+        $totalCost = number_format($totalCost, 2, '.', '');
+
+        return [
+            'path' => $path,
+            'tickets' => $tickets,
+            'totalCostUSD' => $totalCost
+        ];
+    }
+
+    private function findCheapestRouteNoneKISS(int $begin, int $end, $currencies): array
+    {
+        $fares = [];
+        foreach ($currencies as $currency) {
+            $fares[$currency] = $this->metroFares->getFares($currency);
+        }
+
+        $numStations = count($this->metroFares->getFares('USDT'));
         $dist = array_fill(0, $numStations, array_fill(0, $numStations, INF));
         $next = array_fill(0, $numStations, array_fill(0, $numStations, -1));
         $currencyUsed = array_fill(0, $numStations, array_fill(0, $numStations, ''));
@@ -70,7 +177,7 @@ class MetroService
         foreach ($currencies as $currency) {
             for ($i = 0; $i < $numStations; $i++) {
                 for ($j = 0; $j < $numStations; $j++) {
-                    $fare = self::FARES[$currency][$i][$j];
+                    $fare = $fares[$currency][$i][$j];
                     if ($fare < $dist[$i][$j]) {
                         $dist[$i][$j] = $fare;
                         $next[$i][$j] = $j;
@@ -108,7 +215,7 @@ class MetroService
             }
 
             $currency = $currencyUsed[$current][$nextStation];
-            $cost = self::FARES[$currency][$current][$nextStation];
+            $cost = $fares[$currency][$current][$nextStation];
 
             $tickets[] = [
                 'from' => $current,
@@ -116,8 +223,7 @@ class MetroService
                 'currency' => $currency,
                 'cost' => number_format($cost, 10, '.', '')
             ];
-
-            $totalCost += $cost * MetroFares::DEFAULT_RATES[$currency];
+            $totalCost += $cost *  $this->metroFares->getCurrencyRate($currency);
             $current = $nextStation;
         }
 
@@ -130,7 +236,6 @@ class MetroService
             'totalCostUSD' => $totalCost
         ];
     }
-
 }
 
 
