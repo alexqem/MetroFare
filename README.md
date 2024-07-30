@@ -8,8 +8,9 @@ A Laravel 10 project that helps find the cheapest route using various cryptocurr
 
 To work with this project, you need to have the following installed on your system:
 
-- **PHP**: Required for running Laravel applications.
-- **Composer**: Dependency manager for PHP.
+- **PHP**
+- **Composer**
+- **Docker** Has to be installed and run.
 
 ### Installation
 
