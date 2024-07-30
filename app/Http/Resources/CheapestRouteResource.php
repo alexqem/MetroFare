@@ -11,8 +11,6 @@ class CheapestRouteResource extends JsonResource
 
     public function toArray(Request $request): array
     {
-
-        // Check if there's an error
         if (isset($this['error'])) {
             return [
                 'route' => null,

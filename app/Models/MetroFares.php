@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Services\MetroService;
+use App\Services\RatesAndFaresService;
 
 // Супер условная модель сразу для Валюты и Тарифов. Служит лишь примером т.к. не храним реальных данных
 class MetroFares extends Model
@@ -17,17 +17,17 @@ class MetroFares extends Model
         'BTC' => 57929
     ];
 
-    public function getCurrencyRates($currency)
+    public function getCurrencyRate($currency)
     {
         if (self::DYNAMIC_PRICES) { /* Пример с вариантом конфига  */
-            return MetroService::fetchCurrencyRatesFromApi();
+            return RatesAndFaresService::fetchCurrencyRatesFromApi();
         }
-        return self::DEFAULT_RATES;
+        return self::DEFAULT_RATES[$currency];
     }
 
     public function getFares($currency)
     {
-        return MetroService::fetchFaresFromApi($currency);
+        return RatesAndFaresService::fetchFaresFromApi($currency);
 
         /* Можно создать Репозиторий, в данном случае использую сразу Сервис */
     }

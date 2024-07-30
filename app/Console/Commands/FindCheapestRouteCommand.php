@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class FindCheapestRouteCommand extends Command
 {
     protected $signature = 'metro:find-cheapest-route';
-    protected $description = 'Find the cheapest route between two metro stations';
+    protected $description = 'Найти самый дешевый путь между платформами';
 
     private MetroService $metroService;
 
@@ -20,11 +20,11 @@ class FindCheapestRouteCommand extends Command
 
     public function handle()
     {
-        $start = $this->ask('Enter Start Platform ID:');
-        $end = $this->ask('Enter Finish Platform ID:');
+        $start = $this->ask('Введите ID платформы отправления');
+        $end = $this->ask('Введите ID платформы назначения');
 
         $currencies = $this->choice(
-            'Select currencies (multiple choice, comma-separated):',
+            'Выберете валюту оплаты (множество, через запятую)',
             ['USDT', 'ETH', 'BTC'],
             null,
             null,
