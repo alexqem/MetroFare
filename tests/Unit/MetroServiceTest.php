@@ -2,78 +2,76 @@
 
 namespace Tests\Unit;
 
-use App\Models\MetroFares;
 use App\Services\MetroService;
+use App\Models\MetroFares;
 use PHPUnit\Framework\TestCase;
 
 class MetroServiceTest extends TestCase
 {
-    private MetroService $metroService;
-    private MetroFares $metroFares;
+    protected MetroFares $metroFares;
+    protected MetroService $metroService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->metroService = new MetroService();
-        $this->metroFares = new MetroFares();
 
-        // Mock the FARES constant in MetroService for testing
-        $reflection = new \ReflectionClass($this->metroService);
-        $reflection_property = $reflection->getProperty('FARES');
-        $reflection_property->setAccessible(true);
-        $reflection_property->setValue($this->metroService, [
-            'USDT' => [
-                [INF, 1, 2, INF],
-                [1, INF, 1, 2],
-                [2, 1, INF, 1],
-                [INF, 2, 1, INF]
-            ],
-            'ETH' => [
-                [INF, 0.0003, 0.0006, INF],
-                [0.0003, INF, 0.0003, 0.0006],
-                [0.0006, 0.0003, INF, 0.0003],
-                [INF, 0.0006, 0.0003, INF]
-            ],
-            'BTC' => [
-                [INF, 0.00002, 0.00004, INF],
-                [0.00002, INF, 0.00002, 0.00004],
-                [0.00004, 0.00002, INF, 0.00002],
-                [INF, 0.00004, 0.00002, INF]
-            ]
-        ]);
+        $this->metroFares = $this->createMock(MetroFares::class);
+        $this->metroService = new MetroService($this->metroFares);
     }
 
-    public function testFindCheapestRouteSuccessful()
+    public function testValidPath()
     {
-        $result = $this->metroService->findCheapestRoute($this->metroFares, 0, 3, ['USDT', 'ETH', 'BTC']);
+        // Создаем фиктивные данные о тарифах для теста
+        $fakeFares = [
+            [INF, 1, INF, INF],
+            [1, INF, 2, INF],
+            [INF, 2, INF, 3],
+            [INF, INF, 3, INF],
+        ];
 
-        $this->assertIsArray($result);
+        // Задаем поведение мока для метода getFares
+        $this->metroFares->method('getFares')->willReturn($fakeFares);
+        $this->metroFares->method('getCurrencyRate')->willReturn(1);
+
+        // Вызываем метод findCheapestRoute с тестовыми данными
+        $result = $this->metroService->findCheapestRoute(0, 3, ['USDT']);
+
+        // Проверяем результат
         $this->assertArrayHasKey('path', $result);
-        $this->assertArrayHasKey('tickets', $result);
-        $this->assertArrayHasKey('totalCostUSD', $result);
-
-        $this->assertEquals([0, 1, 3], $result['path']);
-        $this->assertCount(2, $result['tickets']);
-        $this->assertEqualsWithDelta(3, $result['totalCostUSD'], 0.01);
+        $this->assertEquals([0, 1, 2, 3], $result['path']);
+        $this->assertEquals('6.00', $result['totalCostUSD']);
     }
 
-    public function testFindCheapestRouteNoPath()
+    public function testNoPath()
     {
-        $reflection = new \ReflectionClass($this->metroService);
-        $reflection_property = $reflection->getProperty('FARES');
-        $reflection_property->setAccessible(true);
-        $reflection_property->setValue($this->metroService, [
-            'USDT' => [
-                [INF, 1, INF, INF],
-                [1, INF, 1, INF],
-                [INF, 1, INF, 1],
-                [INF, INF, 1, INF]
-            ]
-        ]);
+        $fakeFares = [
+            [INF, 1, INF, INF],
+            [1, INF, INF, INF],
+            [INF, INF, INF, INF],
+            [INF, INF, INF, INF],
+        ];
 
-        $result = $this->metroService->findCheapestRoute($this->metroFares, 0, 3, ['USDT']);
+        $this->metroFares->method('getFares')->willReturn($fakeFares);
 
-        $this->assertIsArray($result);
+        $result = $this->metroService->findCheapestRoute(0, 3, ['USDT']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertEquals('Path not found', $result['error']);
+    }
+
+    public function testInsufficientFareData()
+    {
+        $fakeFares = [
+            [INF, null, INF, INF],
+            [null, INF, INF, INF],
+            [INF, INF, INF, null],
+            [INF, INF, null, INF],
+        ];
+
+        $this->metroFares->method('getFares')->willReturn($fakeFares);
+
+        $result = $this->metroService->findCheapestRoute(0, 3, ['USDT']);
+
         $this->assertArrayHasKey('error', $result);
         $this->assertEquals('Path not found', $result['error']);
     }

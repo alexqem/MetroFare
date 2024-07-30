@@ -27,20 +27,36 @@ cd MetroFare
 - ./vendor/bin/sail up -d
 ```
 
-**Postman usage:**
-
-GET http://localhost:80/api/v1/cheapest-route?begin=0&end=5&currencies[]=USDT&currencies[]=ETH&currencies[]=BTC
-
-- **begin** - начальная точка
-- **end** - конечная точка
-- **currencies[]** - Поддерживаемы (USDT,BTC,ETH)
-
-
 **Command usage:**
 ```bash
 - ./vendor/bin/sail artisan metro:find-cheapest-route
 ```
 
+**Postman usage:**
+
+```bash
+GET http://localhost:80/api/v1/cheapest-route?begin=0&end=5&currencies[]=USDT&currencies[]=ETH&currencies[]=BTC
+```
+
+- **begin** - начальная точка
+- **end** - конечная точка
+- **currencies[]** - Поддерживаемы (USDT,BTC,ETH)
+
+**Unit test:**
+```bash
+- ./vendor/bin/sail artisan test tests/Unit/MetroServiceTest.php
+```
+
+**Files to overview:**
+- app/Services/MetroService.php
+- app/Models/MetroFares.php
+- app/Services/RatesAndFaresService.php
+- app/Http/Controllers/api/MetroController.php
+- tests/Unit/MetroServiceTest.php
+- app/Http/Requests/CheapestRouteRequest.php
+- app/Http/Resources/CheapestRouteResource.php
+
+**Screenshoots**
 ![Postman usage](https://i.postimg.cc/sgrSxQyL/Screenshot-2024-07-30-at-09-22-18.png)
 
 
